@@ -26,10 +26,15 @@ router.post("/create-doctor",
 
     // }, 
 
+
+
     validateRequest(createDoctorZodSchema),
 
     UserController.createDoctor);
-// router.post("/create-admin", UserController.createDoctor);
+router.post("/create-admin",
+    // checkAuth(Role.SUPER_ADMIN, Role.ADMIN),
+    UserController.createAdmin);
+
 // router.post("/create-superadmin", UserController.createDoctor);
 
 export const UserRoutes = router;
