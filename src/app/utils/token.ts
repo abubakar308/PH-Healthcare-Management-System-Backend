@@ -56,7 +56,7 @@ const setBetterAuthSessionCookie = (res: Response, token: string) => {
 }
 
 
-export const tojenUtils = {
+export const tokenUtils = {
 getAccessToken,
 getRefreshToken,
 setAccessTokenCookie,
