@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import status from "http-status";
 import { Role, Specialty } from "../../../generated/prisma/client";
 import { auth } from "../../lib/auth";
@@ -130,7 +131,6 @@ const createDoctor = async (payload: ICreateDoctorPayload) => {
     }
 }
 
-
 const createAdmin = async (payload: ICreateAdminPayload) => {
     //TODO: Validate who is creating the admin user. Only super admin can create admin user and only super admin can create super admin user but admin user cannot create super admin user
 
@@ -178,9 +178,10 @@ const createAdmin = async (payload: ICreateAdminPayload) => {
         throw error;
     }
 
+
 }
 
 export const UserService = {
     createDoctor,
-    createAdmin
+    createAdmin,
 }

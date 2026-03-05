@@ -19,7 +19,6 @@ const createDoctor = catchAsync(
     }
 )
 
-
 const createAdmin = catchAsync(
     async (req: Request, res: Response) => {
         const payload = req.body;
@@ -37,5 +36,5 @@ const createAdmin = catchAsync(
 
 export const UserController = {
     createDoctor,
-    createAdmin
+    createAdmin,
 };

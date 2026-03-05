@@ -1,84 +1,115 @@
-import { Role } from "../../../generated/prisma/enums";
-import { auth } from "../../lib/auth";
+import status from "http-status";
+import AppError from "../../errorHelper/AppError";
 import { prisma } from "../../lib/prisma";
-import { ICreateAdmin } from "./admin.interface";
+import { UserStatus } from "../../../generated/prisma/enums";
+import { IUpdateAdminPayload } from "./admin.interface";
+import { IRequestUser } from "../../interfaces/requestUser.interface";
 
-const createAdmin = async (payload: ICreateAdmin) => {
-  // Step 1: Check if user already exists
-  const userExists = await prisma.user.findUnique({
-    where: {
-      email: payload.admin.email,
-    },
-  });
+const getAllAdmins = async () => {
+    const admins = await prisma.admin.findMany({
+        include: {
+            user: true,
+        }
+    })
+    return admins;
+}
 
-  if (userExists) {
-    throw new Error("User with this email already exists");
-  }
+const getAdminById = async (id: string) => {
+    const admin = await prisma.admin.findUnique({
+        where: {
+            id,
+        },
+        include: {
+            user: true,
+        }
+    })
+    return admin;
+}
 
-  // Step 2: Create user account with Better Auth
-  const userData = await auth.api.signUpEmail({
-    body: {
-      email: payload.admin.email,
-      password: payload.password,
-      role: Role.ADMIN,
-      name: payload.admin.name,
-      needPasswordChange: true,
-      rememberMe: false,
-    },
-  });
+const updateAdmin = async (id: string, payload: IUpdateAdminPayload) => {
+    //TODO: Validate who is updating the admin user. Only super admin can update admin user and only super admin can update super admin user but admin user cannot update super admin user
 
-  // Step 3: Create admin profile in transaction
-  try {
-    const result = await prisma.$transaction(async (tx) => {
-      // Create admin record
-      const admin = await tx.admin.create({
+    const isAdminExist = await prisma.admin.findUnique({
+        where: {
+            id,
+        }
+    })
+
+    if (!isAdminExist) {
+        throw new AppError(status.NOT_FOUND, "Admin Or Super Admin not found");
+    }
+
+    const { admin } = payload;
+
+    const updatedAdmin = await prisma.admin.update({
+        where: {
+            id,
+        },
         data: {
-          userId: userData.user.id,
-          name: payload.admin.name,
-          email: payload.admin.email,
-          profilePhoto: payload.admin.profilePhoto,
-          contactNumber: payload.admin.contactNumber,
-        },
-      });
+            ...admin,
+        }
+    })
 
-      // Fetch created admin with user data
-      const createdAdmin = await tx.admin.findUnique({
-        where: { id: admin.id },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          profilePhoto: true,
-          contactNumber: true,
-          isDeleted: true,
-          createdAt: true,
-          updatedAt: true,
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: true,
-              status: true,
+    return updatedAdmin;
+}
+
+//soft delete admin user by setting isDeleted to true and also delete the user session and account
+const deleteAdmin = async (id: string, user : IRequestUser) => {
+    //TODO: Validate who is deleting the admin user. Only super admin can delete admin user and only super admin can delete super admin user but admin user cannot delete super admin user
+
+
+    const isAdminExist = await prisma.admin.findUnique({
+        where: {
+            id,
+        }
+    })
+
+    if (!isAdminExist) {
+        throw new AppError(status.NOT_FOUND, "Admin Or Super Admin not found");
+    }
+
+    if(isAdminExist.id === user.userId){
+        throw new AppError(status.BAD_REQUEST, "You cannot delete yourself");
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+        await tx.admin.update({
+            where: { id },
+            data: {
+                isDeleted: true,
+                deletedAt: new Date(),
             },
-          },
-        },
-      });
+        })
 
-      return createdAdmin;
-    });
+        await tx.user.update({
+            where: { id: isAdminExist.userId },
+            data: {
+                isDeleted: true,
+                deletedAt: new Date(),
+                status: UserStatus.DELETED // Optional: you may also want to block the user
+            },
+        })
+
+        await tx.session.deleteMany({
+            where: { userId: isAdminExist.userId }
+        })
+
+        await tx.account.deleteMany({
+            where: { userId: isAdminExist.userId }
+        })
+
+        const admin = await getAdminById(id);
+
+        return admin;
+    }
+    )
 
     return result;
-  } catch (error) {
-    await prisma.user.delete({
-      where: { id: userData.user.id },
-    });
-    throw new Error("Failed to create admin", {
-		cause: error
-	});
-  }
-};
+}
 
-export const UserService = {
-  createAdmin,
-};
+export const AdminService = {
+    getAllAdmins,
+    getAdminById,
+    updateAdmin,
+    deleteAdmin,
+}
