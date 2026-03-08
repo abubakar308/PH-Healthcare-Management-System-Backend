@@ -31,25 +31,26 @@ const registerPatient = async (payload: IRegisterPatientPayload) => {
     })
 
     if (!data.user) {
-        throw new Error("Failed to register patient");
+        // throw new Error("Failed to register patient");
+        throw new AppError(status.BAD_REQUEST, "Failed to register patient");
     }
 
+    //TODO : Create Patient Profile In Transaction After Sign Up Of Patient In USer Model
+    try {
+        const patient = await prisma.$transaction(async (tx) => {
 
-    try{
-        const patient = await prisma.$transaction( async (tx) => {
+            const patientTx = await tx.patient.create({
+                data: {
+                    userId: data.user.id,
+                    name: payload.name,
+                    email: payload.email,
+                }
+            })
 
-       const patientTx = await tx.patient.create({
-            data:{
-                userId: data.user.id,
-                name: payload.name,
-                email: payload.email,
-            }
+            return patientTx
         })
 
-        return patientTx
-    })
-
-       const accessToken = tokenUtils.getAccessToken({
+        const accessToken = tokenUtils.getAccessToken({
             userId: data.user.id,
             role: data.user.role,
             name: data.user.name,
@@ -59,7 +60,7 @@ const registerPatient = async (payload: IRegisterPatientPayload) => {
             emailVerified: data.user.emailVerified,
         });
 
-         const refreshToken = tokenUtils.getRefreshToken({
+        const refreshToken = tokenUtils.getRefreshToken({
             userId: data.user.id,
             role: data.user.role,
             name: data.user.name,
@@ -69,13 +70,14 @@ const registerPatient = async (payload: IRegisterPatientPayload) => {
             emailVerified: data.user.emailVerified,
         });
 
-    return {
-        ...data,
-        accessToken,
-        refreshToken,
-        patient
-    }
-    }  catch (error) {
+        return {
+            ...data,
+            accessToken,
+            refreshToken,
+            patient
+        }
+
+    } catch (error) {
         console.log("Transaction error : ", error);
         await prisma.user.delete({
             where: {
@@ -86,8 +88,6 @@ const registerPatient = async (payload: IRegisterPatientPayload) => {
     }
 
 }
-
-
 
 
 const loginPatient = async (payload: ILoginUserPayload) => {
@@ -332,6 +332,27 @@ const logoutUser = async (sessionToken : string) => {
     return result;
 }
 
+const verifyEmail = async (email : string, otp : string) => {
+
+    const result = await auth.api.verifyEmailOTP({
+        body:{
+            email,
+            otp,
+        }
+    })
+
+    if(result.status && !result.user.emailVerified){
+        await prisma.user.update({
+            where : {
+                email,
+            },
+            data : {
+                emailVerified: true,
+            }
+        })
+    }
+}
+
 
 export const AuthService = {
     registerPatient,
@@ -339,5 +360,6 @@ export const AuthService = {
     getMe,
     getNewToken,
     changePassword,
-    logoutUser
+    logoutUser,
+    verifyEmail
 }

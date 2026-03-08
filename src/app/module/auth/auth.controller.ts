@@ -11,25 +11,25 @@ import { CookieUtils } from "../../utils/cookie";
 
 const registerPatient = catchAsync(
     async (req: Request, res: Response) => {
-        //  const maxAge = ms(envVars.ACCESS_TOKEN_EXPIRES_IN as StringValue);
+        // const maxAge = ms(envVars.ACCESS_TOKEN_EXPIRES_IN as StringValue);
+        // console.log({ maxAge });
         const payload = req.body;
 
+        console.log(payload);
 
         const result = await AuthService.registerPatient(payload);
 
-         const { accessToken, refreshToken, token, ...rest } = result;
+        const { accessToken, refreshToken, token, ...rest } = result
 
-           tokenUtils.setAccessTokenCookie(res, accessToken);
+        tokenUtils.setAccessTokenCookie(res, accessToken);
         tokenUtils.setRefreshTokenCookie(res, refreshToken);
         tokenUtils.setBetterAuthSessionCookie(res, token as string);
 
-
-
         sendResponse(res, {
-            httpStatusCode: 201,
+            httpStatusCode: status.CREATED,
             success: true,
             message: "Patient registered successfully",
-           data: {
+            data: {
                 token,
                 accessToken,
                 refreshToken,
@@ -162,11 +162,25 @@ const logoutUser = catchAsync(
     }
 )
 
+const verifyEmail = catchAsync(
+    async (req: Request, res: Response) => {
+        const { email, otp } = req.body;
+        await AuthService.verifyEmail(email, otp);
+
+        sendResponse(res, {
+            httpStatusCode: status.OK,
+            success: true,
+            message: "Email verified successfully",
+        });
+    }
+)
+
 export const AuthController = {
     registerPatient,
     loginPatient,
     getMe,
     getNewToken,
     changePassword,
-    logoutUser
+    logoutUser,
+    verifyEmail
 }
