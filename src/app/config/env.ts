@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
+// import AppError from '../errorHelper/AppError';
 // import status from 'http-status';
-// import AppError from '../errorHelpers/AppError';
 
 dotenv.config();
 
